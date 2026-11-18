@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PONG Controller — How to Play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Patrick+Hand&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{ --paper:#fbf5e6; --ink:#2b2a33; --pink:#ff6f91; --moon:#ffd75e; --sun:#ff9b45; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);
+  font-family:'Patrick Hand',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+#viewport{position:fixed;inset:0;overflow:hidden;touch-action:pan-y}
+#track{display:flex;height:100%;transition:transform .55s cubic-bezier(.65,0,.25,1)}
+.page{flex:0 0 100%;height:100%;display:flex;flex-direction:column;align-items:center;
+  padding:calc(58px + env(safe-area-inset-top)) 18px calc(84px + env(safe-area-inset-bottom));gap:8px;text-align:center}
+h1,h2,.big{font-family:'Gochi Hand','Patrick Hand',cursive;font-weight:400;margin:0;line-height:1.05}
+h1{font-size:clamp(40px,9vw,84px)}
+h2{font-size:clamp(28px,6.2vw,54px);max-width:900px}
+.big{font-size:clamp(54px,14vw,120px);color:var(--pink)}
+p{margin:0;font-size:clamp(19px,4.4vw,27px);max-width:760px;line-height:1.25}
+.hint{opacity:.7;font-size:clamp(17px,4vw,22px)}
+.steps{text-align:left;font-size:clamp(17px,4.1vw,24px)}
+.media{position:relative;flex:1 1 auto;width:100%;max-width:960px;min-height:120px}
+.media-inner{position:absolute;inset:0;transform-origin:center center;transition:transform .2s}
+.sketch{position:absolute;inset:0}
+.sketch canvas{display:block}
+.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:22px;opacity:.6}
+body.editing .empty{display:flex}
+.panels{flex:1 1 auto;display:flex;gap:14px;width:100%;max-width:960px;min-height:0}
+.panel{flex:1;display:flex;flex-direction:column;min-height:0;gap:4px}
+.cap{font-size:clamp(20px,5vw,30px)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.controls button{font-size:20px}
+.controls button.on{background:var(--moon)}
+#btnShake{background:var(--pink);color:#fff}
+#try-it .media{touch-action:none;cursor:grab}
+#try-it{position:relative}
+#motionCard{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;background:rgba(251,245,230,.82);padding:20px}
+#motionCard[hidden]{display:none}
+.mc-box{background:#fff;border:3px solid var(--ink);border-radius:22px 16px 24px 14px;box-shadow:4px 5px 0 var(--ink);padding:18px 20px;max-width:420px}
+.mc-icon{font-size:46px}
+.mc-box h3{font-family:'Gochi Hand',cursive;font-weight:400;font-size:32px;margin:4px 0}
+.mc-box p{font-size:20px;margin:0 0 14px}
+.mc-btns{display:flex;flex-direction:column;gap:10px}
+.mc-main{background:var(--pink);color:#fff;font-size:22px}
+#btnPhone.on{background:#9be3b0}
+#qrCard{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(251,245,230,.9);padding:20px}
+#qrCard[hidden]{display:none}
+#qrBox{display:flex;justify-content:center;padding:10px;background:#fff;margin:6px auto 8px;width:max-content;border:2.5px solid var(--ink);border-radius:12px}
+#qrBox img,#qrBox canvas{display:block}
+.qr-note{font-size:16px !important;margin:6px 0 4px !important;opacity:.75}
+#qrUrl{width:100%;font:16px 'Patrick Hand',sans-serif;padding:6px 8px;border:2px solid var(--ink);border-radius:10px;margin-bottom:10px}
+#qrCard .mc-box{text-align:center}
+@media (max-width:680px){ .panels{flex-direction:column;gap:6px} }
+
+.chrome{position:fixed;z-index:20;display:flex;align-items:center;gap:8px}
+#topbar{top:calc(10px + env(safe-area-inset-top));right:12px}
+#pageNum{position:fixed;z-index:20;top:calc(16px + env(safe-area-inset-top));left:16px;font-size:20px;opacity:.6}
+#nav{bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%)}
+button{font-family:inherit;font-size:19px;color:var(--ink);background:#fff;border:2.5px solid var(--ink);
+  border-radius:14px 10px 15px 9px;padding:6px 14px;cursor:pointer;box-shadow:2px 3px 0 var(--ink)}
+button:active{transform:translate(2px,3px);box-shadow:none}
+.arrowBtn{width:46px;height:46px;padding:0;font-size:26px;line-height:1}
+.arrowBtn:disabled{opacity:.3}
+#dots{display:flex;gap:9px;padding:0 6px}
+#dots span{width:13px;height:13px;border:2.5px solid var(--ink);border-radius:50% 45% 55% 48%;cursor:pointer}
+#dots span.on{background:var(--pink)}
+#editBtn.on{background:var(--pink);color:#fff}
+
+body.editing [data-edit]{outline:2.5px dashed rgba(255,111,145,.75);outline-offset:4px;border-radius:6px;cursor:text}
+body.editing [data-edit]:focus{outline-style:solid;background:rgba(255,255,255,.55)}
+#editBar{position:fixed;z-index:19;left:50%;transform:translateX(-50%);top:calc(62px + env(safe-area-inset-top));
+  display:none;flex-wrap:wrap;justify-content:center;gap:6px;align-items:center;background:#fff;border:2.5px dashed var(--ink);
+  border-radius:16px;padding:6px 10px;width:max-content;max-width:calc(100vw - 20px);font-size:17px}
+body.editing #editBar{display:flex}
+body.editing .page{padding-top:calc(150px + env(safe-area-inset-top))}
+#editBar button{font-size:16px;padding:3px 10px;box-shadow:1px 2px 0 var(--ink)}
+.sw{width:24px;height:24px;border-radius:50%;border:2px solid var(--ink);cursor:pointer;display:inline-block}
+.media-tools{display:none;position:absolute;z-index:5;top:4px;left:50%;transform:translateX(-50%);gap:5px;align-items:center;
+  background:#fff;border:2.5px dashed var(--pink);border-radius:14px;padding:5px 8px;white-space:nowrap;font-size:16px}
+body.editing .media-tools{display:flex}
+.media-tools button{font-size:15px;padding:2px 8px;box-shadow:1px 2px 0 var(--ink)}
+body.editing .media{outline:2.5px dashed rgba(143,207,223,.9);outline-offset:-2px;border-radius:14px}
+#toast{position:fixed;z-index:30;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:12px;font-size:18px;opacity:0;pointer-events:none;transition:opacity .3s;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+#r5{position:absolute;left:-99999px;top:0;width:10px;height:10px;overflow:hidden}
+</style>
+</head>
+<body>
+<div id="pageNum"></div>
+<div id="topbar" class="chrome"><button id="qrBtn">📱 QR</button><button id="editBtn">✏️ Edit</button></div>
+<div id="qrCard" hidden>
+  <div class="mc-box">
+    <h3>Scan to play on your phone</h3>
+    <div id="qrBox"></div>
+    <p class="qr-note">Link (paste your own share link here if needed):</p>
+    <input id="qrUrl" type="url" spellcheck="false">
+    <div class="mc-btns"><button id="qrClose">Close</button></div>
+  </div>
+</div>
+
+<div id="editBar">
+  <span>Text:</span>
+  <button data-fmt="smaller">A−</button>
+  <button data-fmt="bigger">A+</button>
+  <span class="sw" data-color="#2b2a33" style="background:#2b2a33"></span>
+  <span class="sw" data-color="#ff6f91" style="background:#ff6f91"></span>
+  <span class="sw" data-color="#ff9b45" style="background:#ff9b45"></span>
+  <span class="sw" data-color="#3a8fb7" style="background:#3a8fb7"></span>
+  <span class="sw" data-color="#7a5bd6" style="background:#7a5bd6"></span>
+  <button data-fmt="resetText">↺ text</button>
+  <button id="addPage">＋ Page</button>
+  <button id="delPage" hidden>🗑 Page</button>
+  <button id="resetAll">Reset all</button>
+</div>
+
+<div id="viewport">
+  <div id="track">
+
+    <section class="page" id="cover">
+      <h1 data-edit="p1-title">PONG Controller</h1>
+      <p data-edit="p1-sub">A clear acrylic pentagon tube that plays Pong when you shake it.</p>
+      <div class="media" data-media="p1-img" data-scene="cover"></div>
+      <p class="hint" data-edit="p1-hint">Swipe to learn how to play →</p>
+    </section>
+
+    <section class="page" id="which-way">
+      <h2 data-edit="p2-title">Which side is which?</h2>
+      <p data-edit="p2-sub">Hold it upright. The end on top picks the direction.</p>
+      <div class="panels">
+        <div class="panel">
+          <div class="media" data-media="p2-moon" data-scene="moonCap"></div>
+          <div class="cap" data-edit="p2-cap1">🌙 Moon on top = <b>UP</b></div>
+        </div>
+        <div class="panel">
+          <div class="media" data-media="p2-star" data-scene="starCap"></div>
+          <div class="cap" data-edit="p2-cap2">⭐ Star on top = <b>DOWN</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="shake">
+      <h2 data-edit="p3-title">Tilt chooses the direction, shaking is what moves the paddle!</h2>
+      <div class="media" data-media="p3-img" data-scene="shake"></div>
+      <p data-edit="p3-sub-v2">Shake it any way — up and down or side to side.<br>🌙 on top → the paddle goes up. ⭐ on top → the paddle goes down.</p>
+    </section>
+
+    <section class="page" id="example">
+      <h2 data-edit="p4e-title">Example</h2>
+      <div class="media" data-media="p4e-img" data-scene="example"></div>
+      <p class="steps" data-edit="p4e-steps">1. The ball is flying to the <b>top</b>.<br>2. 🌙 is on top, so shake → your paddle climbs up and hits it!<br>3. Next ball goes <b>lower</b>? Flip it so ⭐ is on top, then shake → the paddle goes down.</p>
+    </section>
+
+    <section class="page" id="try-it">
+      <h2 data-edit="p5t-title">Your turn — try it!</h2>
+      <p data-edit="p5t-sub">Pick 🌙 or ⭐, then shake: tap <b>Shake</b>, or wiggle the controller with your finger. Catch the ball!</p>
+      <div class="media" data-media="p5t-img" data-scene="play"></div>
+      <div class="controls">
+        <button id="btnMoon" class="on">🌙 Moon up</button>
+        <button id="btnStar">⭐ Star up</button>
+        <button id="btnShake">👋 Shake!</button>
+        <button id="btnPhone">📱 Use my phone</button>
+      </div>
+      <div id="motionCard" hidden>
+        <div class="mc-box">
+          <div class="mc-icon">📱</div>
+          <h3 id="mcTitle">Play with your real phone?</h3>
+          <p id="mcText">Your phone becomes the controller: hold it upright for 🌙, turn it upside down for ⭐, and shake to move the paddle.</p>
+          <div class="mc-btns">
+            <button id="mcAllow" class="mc-main">Allow motion sensors</button>
+            <button id="mcSkip">Use buttons instead</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="have-fun">
+      <h2 data-edit="p4-title">You've got it!</h2>
+      <div class="big" data-edit="p4-big">Have fun!</div>
+      <div class="media" data-media="p4-img" data-scene="fun"></div>
+      <p data-edit="p4-sub">Grab your controller and play a round of Pong.</p>
+    </section>
+
+  </div>
+</div>
+
+<div id="nav" class="chrome">
+  <button class="arrowBtn" id="prev" aria-label="Previous page">‹</button>
+  <div id="dots"></div>
+  <button class="arrowBtn" id="next" aria-label="Next page">›</button>
+</div>
+<div id="toast"></div>
+<div id="r5"></div>
+
+<script>
+// PONG Controller — How to Play
+// Instance-mode p5.js: every drawing is its own p5 sketch (see setupMedia).
+
+/* ================= SAVED EDITS (this browser only) ================= */
+const STORE='pong-controller-guide-v1';
+let state={text:{},style:{},media:{},custom:[]};
+try { const s=JSON.parse(localStorage.getItem(STORE)||'null'); if (s) state=Object.assign(state,s); } catch(e){}
+if (!Array.isArray(state.custom)) state.custom=[];
+// view-only: no Edit button, and everyone sees the same page (old browser edits are ignored)
+const READ_ONLY=true;
+if (READ_ONLY) state={text:{},style:{},media:{},custom:[]};
+function save(){ try { localStorage.setItem(STORE,JSON.stringify(state)); return true; } catch(e){ return false; } }
+let saveT; function saveSoon(){ clearTimeout(saveT); saveT=setTimeout(save,350); }
+function toast(msg,ms){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),ms||2800); }
+const T0=performance.now(); const now=()=>(performance.now()-T0)/1000;
+
+/* ================= COLORS ================= */
+const C={ ink:'#2b2a33', paper:'#fbf5e6', face:'#d3f0f6', edge:'#93d0df', moon:'#ffd75e', sun:'#ff9b45', pink:'#ff6f91',
+          screen:'#23324a', chalk:'#f4ecd8', shadow:'rgba(43,42,51,0.09)', blue:'#3a8fb7', purple:'#7a5bd6' };
+
+/* ================= HAND-DRAWN HELPERS ================= */
+function H(p){
+  const j=a=>p.random(-a,a);
+  function dens(pts,closed,step){
+    const out=[], n=pts.length, segs=closed?n:n-1;
+    for (let i=0;i<segs;i++){ const [x1,y1]=pts[i], [x2,y2]=pts[(i+1)%n];
+      const k=Math.max(1,Math.ceil(Math.hypot(x2-x1,y2-y1)/step));
+      for (let s=0;s<k;s++) out.push([x1+(x2-x1)*s/k, y1+(y2-y1)*s/k]); }
+    if (!closed) out.push(pts[n-1]);
+    return out;
+  }
+  function path(pts,closed,o={}){
+    const S=p._lw||1, st=o.stroke===undefined?C.ink:o.stroke, w=(o.w||2.6)*S, jj=(o.j===undefined?1.3:o.j)*S, step=(o.step||16)*S;
+    if (o.fill){ p.noStroke(); p.fill(o.fill); p.beginShape(); for (const [x,y] of pts) p.vertex(x+j(jj*.5),y+j(jj*.5)); p.endShape(p.CLOSE); }
+    if (!st) return;
+    p.noFill(); p.stroke(st); p.strokeJoin(p.ROUND); p.strokeCap(p.ROUND);
+    const passes=o.passes||2;
+    for (let k=0;k<passes;k++){
+      p.strokeWeight(k===0?w:w*0.5);
+      const d=dens(pts,closed,step).map(([x,y])=>[x+j(jj),y+j(jj)]), m=d.length;
+      p.beginShape();
+      if (closed){ p.curveVertex(...d[m-1]); for (const q of d) p.curveVertex(...q); p.curveVertex(...d[0]); p.curveVertex(...d[1%m]); }
+      else { p.curveVertex(...d[0]); for (const q of d) p.curveVertex(...q); p.curveVertex(...d[m-1]); }
+      p.endShape();
+    }
+  }
+  function circlePts(cx,cy,rx,ry){ const n=Math.max(14,Math.round((rx+ry)/2.5/(p._lw||1))), a=[];
+    for (let i=0;i<n;i++){ const t=i/n*Math.PI*2; a.push([cx+Math.cos(t)*rx, cy+Math.sin(t)*ry]); } return a; }
+  const ell=(cx,cy,rx,ry,o)=>path(circlePts(cx,cy,rx,ry),true,o);
+  const line=(x1,y1,x2,y2,o)=>path([[x1,y1],[x2,y2]],false,o);
+  const rect=(x,y,w,h,o)=>path([[x,y],[x+w,y],[x+w,y+h],[x,y+h]],true,o);
+  function arrow(x1,y1,x2,y2,o={}){ line(x1,y1,x2,y2,o); const a=Math.atan2(y2-y1,x2-x1), s=o.head||14;
+    line(x2,y2,x2-Math.cos(a-0.55)*s,y2-Math.sin(a-0.55)*s,o); line(x2,y2,x2-Math.cos(a+0.55)*s,y2-Math.sin(a+0.55)*s,o); }
+  function star(x,y,r,col){ line(x-r,y,x+r,y,{stroke:col,w:3}); line(x,y-r,x,y+r,{stroke:col,w:3}); }
+  return {path,ell,line,rect,arrow,star};
+}
+
+/* ================= SHAPES ================= */
+function moon(p,h,r,fill){
+  const d=0.72*r, hh=Math.sqrt(r*r-(d/2)*(d/2)), a=Math.atan2(hh,d/2), pts=[];
+  for (let t=a;t<=Math.PI*2-a;t+=0.2) pts.push([Math.cos(t)*r,Math.sin(t)*r]);
+  for (let t=Math.PI+a;t>=Math.PI-a;t-=0.2) pts.push([d+Math.cos(t)*r,Math.sin(t)*r]);
+  p.push(); p.rotate(-0.45); h.path(pts,true,{fill:fill||C.moon,w:2.2,step:10}); p.pop();
+}
+function starPts(r){ const a=[]; for (let i=0;i<10;i++){ const an=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.45:r; a.push([Math.cos(an)*rr,Math.sin(an)*rr]); } return a; }
+function heartPts(r){ const a=[]; for (let i=0;i<24;i++){ const t=i/24*Math.PI*2;
+  a.push([16*Math.pow(Math.sin(t),3)*r/17, -(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*r/17]); } return a; }
+function burstPts(r){ const a=[]; for (let i=0;i<24;i++){ const an=i/24*Math.PI*2, rr=i%2?r*0.78:r; a.push([Math.cos(an)*rr,Math.sin(an)*rr]); } return a; }
+function cutout(p,h,kind,r){
+  const o={fill:'rgba(255,255,255,0.8)',w:2,step:6};
+  if (kind==='star') h.path(starPts(r),true,o);
+  else if (kind==='heart') h.path(heartPts(r*0.85),true,o);
+  else if (kind==='moon') moon(p,h,r*0.8,'rgba(255,255,255,0.8)');
+  else if (kind==='sun') h.path(burstPts(r*1.05),true,o);
+}
+/* the controller: a tall pentagon tube of clear acrylic.
+   moon on the top cap, star on the bottom cap, cut-outs on the sides */
+function drawPrism(p,h,o){
+  const {x,y,H:Ht,R,spin=0,rot=0}=o, k=0.34;
+  const angs=[0,1,2,3,4].map(i=>spin+i*Math.PI*2/5-Math.PI/2);
+  const ring=(yc,r=R)=>angs.map(an=>[r*Math.cos(an), yc+r*Math.sin(an)*k]);
+  const top=ring(-Ht/2), bot=ring(Ht/2), faint='rgba(43,42,51,0.35)';
+  const front=i=>Math.sin(angs[i]+Math.PI/5)>0;
+  p.push(); p.translate(x,y); p.rotate(rot);
+  h.path(bot,true,{fill:'rgba(196,233,243,0.6)',stroke:faint,w:2,passes:1});
+  p.push(); p.translate(0,Ht/2); p.scale(1,k); h.path(starPts(R*0.45),true,{fill:C.sun,w:2.2,step:8}); p.pop();
+  for (let i=0;i<5;i++){ if (front(i)) continue; const j=(i+1)%5;
+    h.path([top[i],top[j],bot[j],bot[i]],true,{fill:'rgba(205,238,246,0.35)',stroke:faint,w:1.8,passes:1}); }
+  [Ht*0.1,Ht*0.3].forEach(yc=>{
+    h.path(ring(yc,R*0.98),true,{fill:'rgba(225,246,251,0.55)',stroke:faint,w:1.8,passes:1});
+    [[-0.35,0],[0.3,-0.2],[0.1,0.35]].forEach(([hx,hy])=>h.ell(hx*R,yc+hy*R*k,R*0.09,R*0.09*k,{stroke:faint,w:1.4,passes:1}));
+  });
+  h.rect(-R*0.5,Ht*0.36,R*0.8,Ht*0.065,{fill:'#f2c14e',w:1.8});
+  h.line(-R*0.5,Ht*0.41,-R*0.78,Ht*0.44,{stroke:'#d33',w:1.6,passes:1});
+  h.line(-R*0.5,Ht*0.415,-R*0.74,Ht*0.46,{stroke:C.ink,w:1.6,passes:1});
+  const faceW=2*R*Math.sin(Math.PI/5);
+  for (let i=0;i<5;i++){ if (!front(i)) continue; const j=(i+1)%5;
+    h.path([top[i],top[j],bot[j],bot[i]],true,{fill:'rgba(215,242,249,0.3)',w:2.6});
+    const cx=(top[i][0]+top[j][0])/2, cy0=(top[i][1]+top[j][1])/2, sx=Math.max(0.05,Math.abs(top[j][0]-top[i][0])/faceW);
+    p.push(); p.translate(cx,cy0+Ht*0.42); p.scale(sx,1); cutout(p,h,['star','sun','moon','heart','star'][i],R*0.3); p.pop();
+    [0.25,0.5,0.75].forEach(f=>{ const yy=top[i][1]+Ht*f; h.line(top[i][0]-R*0.06,yy,top[i][0]+R*0.06,yy,{w:1.6,passes:1}); });
+  }
+  h.line(-R*0.6,-Ht*0.36,-R*0.6,Ht*0.02,{stroke:'rgba(255,255,255,0.95)',w:3.5,passes:1});
+  h.line(-R*0.48,-Ht*0.3,-R*0.48,-Ht*0.16,{stroke:'rgba(255,255,255,0.95)',w:2.5,passes:1});
+  h.path(top,true,{fill:'rgba(215,242,249,0.75)',w:2.6});
+  p.push(); p.translate(0,-Ht/2); p.scale(1,k); moon(p,h,R*0.45); p.pop();
+  p.pop();
+}
+function drawCap(p,h,cx,cy,r,kind,rot){
+  const pts=[0,1,2,3,4].map(i=>{ const a=-Math.PI/2+i*Math.PI*2/5; return [Math.cos(a)*r,Math.sin(a)*r]; });
+  p.push(); p.translate(cx,cy); p.rotate(rot);
+  h.path(pts.map(([a,b])=>[a,b+r*0.13]),true,{fill:C.edge,w:2});
+  h.path(pts,true,{fill:C.face,w:2.8});
+  h.line(-r*0.55,-r*0.15,-r*0.3,-r*0.55,{stroke:'rgba(255,255,255,0.95)',w:3.5,passes:1});
+  if (kind==='moon') moon(p,h,r*0.5); else h.path(starPts(r*0.55),true,{fill:C.sun,w:2.4,step:8});
+  p.pop();
+}
+function drawPong(p,h,x,y,w,ht,leftY,ballX,ballY,rightY){
+  const S=p._lw||1;
+  h.rect(x,y,w,ht,{fill:C.screen,w:3.2});
+  for (let yy=y+ht*0.06; yy<y+ht*0.94; yy+=ht*0.11) h.line(x+w/2,yy,x+w/2,yy+ht*0.05,{stroke:C.chalk,w:2,passes:1});
+  const pw=Math.max(6*S,w*0.035), ph=ht*0.26, m=w*0.06;
+  const ly=y+ht/2+leftY*(ht/2-ph/2-ht*0.04), ry=y+ht/2+rightY*(ht/2-ph/2-ht*0.04);
+  h.rect(x+m,ly-ph/2,pw,ph,{fill:C.chalk,stroke:C.chalk,w:2,passes:1});
+  h.rect(x+w-m-pw,ry-ph/2,pw,ph,{fill:C.chalk,stroke:C.chalk,w:2,passes:1});
+  const br=Math.max(5*S,w*0.022);
+  const bx=x+m+pw+br+(w-2*m-2*pw-2*br)*ballX, by=y+br+(ht-2*br)*ballY;
+  h.ell(bx,by,br,br,{fill:C.moon,stroke:C.chalk,w:1.6,passes:1});
+  return {lx:x+m+pw, ly, ph, bx, by, br};
+}
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const seg=(t,a,b)=>clamp((t-a)/(b-a),0,1);
+const ease=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+const tri=x=>1-4*Math.abs((((x%1)+1)%1)-0.5);
+const lerp=(a,b,f)=>a+(b-a)*f;
+
+/* controller + Pong screen side by side.
+   o: rot, spin, vert (-1..1 shake offset), side (-1..1), vertDir, sideOn, arrow (-1 up / 1 down), padY, bx, by, padMove */
+function rig(p,h,o){
+  const w=p.width, hh=p.height, u=Math.min(w,hh)/100;
+  const Ht=Math.min(hh*0.72,w*0.95), R=Ht*0.17, px=Math.max(R*1.25+u*3,w*0.18), py=hh/2, A=Ht*0.12;
+  const x=px+(o.side||0)*A*0.55, y=py+(o.vert||0)*A;
+  if (o.vertDir) for (let k=-1;k<=1;k++){ const yy = o.vertDir<0 ? y+Ht/2+u*3 : y-Ht/2-u*11; h.line(x+k*R*0.6,yy,x+k*R*0.6,yy+u*8,{w:2.4}); }
+  if (o.sideOn) for (const sgn of [-1,1]) for (const f of [-0.15,0.15]) h.line(px+sgn*(R*1.35+u*2),py+f*Ht-u*4,px+sgn*(R*1.35+u*2),py+f*Ht+u*4,{w:2.4});
+  drawPrism(p,h,{x,y,H:Ht,R,spin:o.spin||0,rot:o.rot||0});
+  const ax=px+R*1.35+u*7;
+  if (o.arrow) h.arrow(ax,py-o.arrow*Ht*0.18,ax,py+o.arrow*Ht*0.18,{stroke:C.pink,w:3.6,head:u*4});
+  const gx=ax+u*6; let gw=w-gx-u*2, gh=Math.min(hh*0.86,gw*0.9); if (gw>gh*1.5) gw=gh*1.5;
+  const gy=(hh-gh)/2;
+  const r=drawPong(p,h,gx,gy,gw,gh,o.padY||0,o.bx,o.by,o.rightY!==undefined?o.rightY:clamp((o.by-0.5)*2,-1,1));
+  if (o.padMove) h.arrow(r.lx+u*5,r.ly-o.padMove*u*5,r.lx+u*5,r.ly+o.padMove*u*6,{stroke:C.pink,w:3,head:u*2.6});
+  if (o.burst){ for (let i=0;i<7;i++){ const a=i/7*Math.PI*2; h.line(r.bx+Math.cos(a)*r.br*1.8,r.by+Math.sin(a)*r.br*1.8,r.bx+Math.cos(a)*r.br*3,r.by+Math.sin(a)*r.br*3,{stroke:C.moon,w:2.4,passes:1}); } }
+  return {r,gx,gy,gw,gh,u};
+}
+
+/* ================= SCENES (each loops every P seconds) ================= */
+const SCENES={
+  cover:{P:8, draw(p,h,t){
+    const w=p.width, hh=p.height, u=Math.min(w,hh)/100, f=t/8*Math.PI*2;
+    const Ht=Math.min(hh*0.8,w*1.6), R=Ht*0.17, bob=Math.sin(2*f)*u*2.5;
+    h.ell(w/2,hh*0.5+Ht/2+R*0.35,R*1.3*(1-Math.sin(2*f)*0.05),R*0.3,{fill:C.shadow,stroke:null});
+    [[.12,.18,C.moon],[.88,.22,C.sun],[.14,.84,C.pink],[.86,.8,C.blue],[.75,.5,C.purple],[.25,.5,C.moon]]
+      .forEach(([sx,sy,col],i)=>h.star(sx*w,sy*hh,u*(2.2+1.2*Math.abs(Math.sin(2*f+i))),col));
+    drawPrism(p,h,{x:w/2,y:hh*0.48+bob,H:Ht,R,spin:f,rot:Math.sin(f)*0.07});
+  }},
+  moonCap:{P:4, draw(p,h,t){ panel(p,h,t,true); }},
+  starCap:{P:4, draw(p,h,t){ panel(p,h,t,false); }},
+  shake:{P:8, draw(p,h,t){
+    const tt=t%8, f=t/8*Math.PI*2;
+    const v1=seg(tt,0.6,1.1), s1=seg(tt,1.6,2.2), v2=seg(tt,3.8,4.3), s2=seg(tt,4.9,5.5);
+    const act=x=>x>0&&x<1;
+    const padY=-0.45*ease(seg(tt,0.8,1.3))-0.45*ease(seg(tt,1.9,2.4))+0.45*ease(seg(tt,4.0,4.5))+0.45*ease(seg(tt,5.2,5.7));
+    const padMove=(tt>0.8&&tt<1.3)||(tt>1.9&&tt<2.4)?-1:(tt>4.0&&tt<4.5)||(tt>5.2&&tt<5.7)?1:0;
+    rig(p,h,{ spin:f, rot:Math.PI*ease(seg(tt,2.6,3.4))+Math.PI*ease(seg(tt,6.4,7.2)),
+      vert:-Math.sin(v1*Math.PI)+Math.sin(v2*Math.PI), vertDir:act(v1)?-1:act(v2)?1:0,
+      side:Math.sin(s1*Math.PI*4)+Math.sin(s2*Math.PI*4), sideOn:act(s1)||act(s2),
+      arrow:(tt>0.4&&tt<2.5)?-1:(tt>3.6&&tt<5.8)?1:0, padY, padMove,
+      bx:0.5+0.5*tri(t*2/8), by:0.5+0.48*tri(t*3/8+0.2) });
+  }},
+  example:{P:9, draw(p,h,t){
+    const tt=t%9, f=t/9*Math.PI*2, act=x=>x>0&&x<1;
+    let bx,by;
+    if (tt<3){ const q=tt/3; bx=lerp(1,0,q); by=lerp(0.5,0.12,q); }
+    else if (tt<4.5){ const q=(tt-3)/1.5; bx=lerp(0,1,q); by=lerp(0.12,0.35,q); }
+    else if (tt<8){ const q=(tt-4.5)/3.5; bx=lerp(1,0,q); by=lerp(0.35,0.5,q); }
+    else { const q=tt-8; bx=lerp(0,1,q); by=0.5; }
+    const v1=seg(tt,1.0,1.5), s1=seg(tt,1.8,2.3), v2=seg(tt,5.6,6.1), s2=seg(tt,6.4,6.9);
+    const padY=-0.45*ease(seg(tt,1.1,1.5))-0.45*ease(seg(tt,1.95,2.4))+0.45*ease(seg(tt,5.7,6.1))+0.45*ease(seg(tt,6.5,6.95));
+    const padMove=(tt>1.1&&tt<1.5)||(tt>1.95&&tt<2.4)?-1:(tt>5.7&&tt<6.1)||(tt>6.5&&tt<6.95)?1:0;
+    rig(p,h,{ spin:f, rot:Math.PI*ease(seg(tt,4.0,4.8))+Math.PI*ease(seg(tt,8.2,8.9)),
+      vert:-Math.sin(v1*Math.PI)+Math.sin(v2*Math.PI), vertDir:act(v1)?-1:act(v2)?1:0,
+      side:Math.sin(s1*Math.PI*4)+Math.sin(s2*Math.PI*4), sideOn:act(s1)||act(s2),
+      arrow:(tt>0.7&&tt<2.6)?-1:(tt>5.3&&tt<7.1)?1:0, padY, padMove, bx, by,
+      burst:(tt>2.95&&tt<3.4)||(tt>7.95&&tt<8.4) });
+  }},
+  fun:{P:6, draw(p,h,t){
+    const w=p.width, hh=p.height, u=Math.min(w,hh)/100, f=t/6*Math.PI*2, cols=[C.pink,C.moon,C.sun,C.blue,C.purple];
+    for (let i=0;i<28;i++){
+      const x=((i*0.6180339)%1)*w, sp=(1+i%2)/6;
+      const y=(((t*sp+i*0.173)%1)*1.15-0.08)*hh, r=u*(1.6+(i%3)), a=f*(1+i%3)+i, col=cols[i%5];
+      p.push(); p.translate(x,y); p.rotate(a);
+      if (i%3===0) h.path([[-r*1.5,0],[-r*0.5,-r],[r*0.5,r],[r*1.5,0]],false,{stroke:col,w:3,passes:1,step:8});
+      else if (i%3===1) h.path([[0,-r],[r,r],[-r,r]],true,{fill:col,stroke:null});
+      else h.ell(0,0,r*0.8,r*0.8,{fill:col,stroke:null});
+      p.pop();
+    }
+    let gw=w*0.8, gh=gw/1.6; if (gh>hh*0.55){ gh=hh*0.55; gw=gh*1.6; }
+    const gx=(w-gw)/2, gy=hh*0.04, bx=0.5+0.5*tri(t*2/6), by=0.5+0.48*tri(t*3/6+0.3);
+    drawPong(p,h,gx,gy,gw,gh,clamp((by-0.5)*2.1,-1,1),bx,by,clamp((0.5-by)*-1.9,-1,1));
+    const room=hh-(gy+gh), Ht=Math.min(w*0.6,room*2.4), R=Ht*0.17;
+    drawPrism(p,h,{x:w/2,y:gy+gh+room*0.52,H:Ht,R,spin:f,rot:Math.PI/2+Math.sin(3*f)*0.18});
+  }},
+  play:{P:0, draw(p,h,t){ playDraw(p,h,t); }}
+};
+function panel(p,h,t,isMoon){
+  const w=p.width, hh=p.height, u=Math.min(w,hh)/100, f=t/4*Math.PI*2;
+  const r=Math.min(w*0.3,hh*0.38), cx=w*0.42, cy=hh*0.48+Math.sin(f+(isMoon?0:1))*u*2;
+  h.ell(cx,hh*0.48+r*1.12,r*0.8,r*0.12,{fill:C.shadow,stroke:null});
+  drawCap(p,h,cx,cy,r,isMoon?'moon':'star',Math.sin(f)*0.08);
+  const ax=Math.min(w*0.9,cx+r+u*10), len=Math.min(hh*0.55,r*1.6), bob=Math.sin(2*f)*u*2.2, col=isMoon?C.blue:C.sun;
+  if (isMoon) h.arrow(ax,hh*0.5+len/2+bob,ax,hh*0.5-len/2+bob,{stroke:col,w:4,head:u*5});
+  else        h.arrow(ax,hh*0.5-len/2+bob,ax,hh*0.5+len/2+bob,{stroke:col,w:4,head:u*5});
+}
+
+/* ================= TRY IT: the little game ================= */
+const G={ orient:'moon', rot:0, padY:0, padTarget:0, shakeT:-9, shakeKind:'vert', shakeDir:-1, hits:0, misses:0,
+          msg:'Shake to move your paddle!', msgT:0, lastT:null, pause:1.5, ball:{x:0.6,y:0.4,vx:-0.26,vy:0.22} };
+function say(m){ G.msg=m; G.msgT=now(); }
+function setOrient(o){ if (G.orient===o) return; G.orient=o;
+  document.getElementById('btnMoon').classList.toggle('on',o==='moon');
+  document.getElementById('btnStar').classList.toggle('on',o==='star'); }
+function shake(kind){ if (now()-G.shakeT<0.25) return;
+  G.shakeT=now(); G.shakeKind=kind||'vert'; G.shakeDir=G.orient==='moon'?-1:1;
+  G.padTarget=clamp(G.padTarget+G.shakeDir*0.45,-1,1); }
+function playDraw(p,h,t){
+  const dt=G.lastT==null?0:clamp(t-G.lastT,0,0.05); G.lastT=t;
+  G.rot+=((G.orient==='moon'?0:Math.PI)-G.rot)*Math.min(1,dt*7);
+  G.padY+=(G.padTarget-G.padY)*Math.min(1,dt*10);
+  const age=now()-G.shakeT, on=age<0.5, b=G.ball;
+  if (G.pause>0) G.pause-=dt;
+  else { b.x+=b.vx*dt; b.y+=b.vy*dt;
+    if (b.y<0){ b.y=-b.y; b.vy=Math.abs(b.vy); } if (b.y>1){ b.y=2-b.y; b.vy=-Math.abs(b.vy); }
+    if (b.x>=1){ b.x=1; b.vx=-Math.abs(b.vx); b.vy=(Math.random()*2-1)*0.35; } }
+  const L=rig(p,h,{ spin:t*0.4, rot:G.rot,
+    vert: on&&G.shakeKind==='vert' ? Math.sin(age/0.5*Math.PI)*G.shakeDir : 0, vertDir: on&&G.shakeKind==='vert' ? G.shakeDir : 0,
+    side: on&&G.shakeKind==='side' ? Math.sin(age/0.5*Math.PI*4) : 0, sideOn: on&&G.shakeKind==='side',
+    padY:G.padY, bx:clamp(b.x,0,1), by:b.y });
+  const r=L.r;
+  if (b.x<=0 && G.pause<=0){
+    if (Math.abs(r.by-r.ly)<=r.ph/2+r.br){ b.x=0; b.vx=Math.min(0.55,Math.abs(b.vx)*1.08); G.hits++; say(['Nice catch! ✨','Great shake!','You got it!'][G.hits%3]); }
+    else { G.misses++; say(r.by<r.ly?'Missed! Ball was higher → 🌙 up, then shake':'Missed! Ball was lower → ⭐ up, then shake');
+      b.x=0.6; b.y=0.2+Math.random()*0.6; b.vx=-0.26; b.vy=(Math.random()*2-1)*0.3; G.pause=1.6; }
+  }
+  const {gx,gy,gw,gh}=L;
+  p.noStroke(); p.fill(C.chalk); p.textFont('Patrick Hand'); p.textAlign(p.CENTER,p.TOP);
+  p.textSize(Math.max(13,gh*0.075)); p.text('Catches: '+G.hits+'    Misses: '+G.misses,gx+gw/2,gy+gh*0.03);
+  if (now()-G.msgT<2.6 || G.hits+G.misses===0){ p.textSize(Math.max(14,gh*0.08)); p.fill(C.moon); p.textAlign(p.CENTER,p.BOTTOM);
+    p.text(G.msg,gx+gw*0.05,gy+gh*0.55,gw*0.9,gh*0.42); }
+}
+['btnMoon','btnStar','btnShake'].forEach(id=>document.getElementById(id).addEventListener('click',()=>{
+  if (id==='btnShake') shake('vert'); else setOrient(id==='btnMoon'?'moon':'star'); }));
+
+/* real phone shaking (works where the browser gives the page motion sensors) */
+let phoneOn=false, gotSensor=false, gAvg=null;
+
+function onMotion(e){
+  let x,y,z; const a=e.acceleration;
+  if (a && a.x!=null){ x=a.x; y=a.y; z=a.z||0; }
+  else { const g=e.accelerationIncludingGravity; if (!g || g.x==null) return;
+    if (!gAvg) gAvg={x:g.x,y:g.y,z:g.z||0};
+    gAvg.x+=(g.x-gAvg.x)*0.1; gAvg.y+=(g.y-gAvg.y)*0.1; gAvg.z+=((g.z||0)-gAvg.z)*0.1;
+    x=g.x-gAvg.x; y=g.y-gAvg.y; z=(g.z||0)-gAvg.z; }
+  gotSensor=true;
+  if (Math.hypot(x,y,z)>11 && pageList()[cur].id==='try-it') shake(Math.abs(x)>Math.abs(y)?'side':'vert');
+}
+function onOrient(e){ if (e.beta==null) return; gotSensor=true;
+  if (e.beta>40) setOrient('moon'); else if (e.beta<-40) setOrient('star'); }
+const mc=document.getElementById('motionCard'), mcTitle=document.getElementById('mcTitle'), mcText=document.getElementById('mcText'), mcAllow=document.getElementById('mcAllow');
+let mcShown=false;
+function showMotionCard(){ mcShown=true; mc.hidden=false; }
+function mcSay(title,text,allowLabel){ mcTitle.textContent=title; mcText.textContent=text; mcAllow.textContent=allowLabel||'Try again'; mc.hidden=false; }
+const BLOCKED="This viewer doesn't pass the phone's motion sensors to the page. Open the page from its own web link in Safari or Chrome to shake for real — or use the buttons here.";
+function startSensors(){
+  window.addEventListener('devicemotion',onMotion); window.addEventListener('deviceorientation',onOrient);
+  phoneOn=true; gotSensor=false;
+  mcSay('Checking sensors…','Give your phone a little shake!','Waiting…');
+  setTimeout(()=>{
+    if (gotSensor){ mc.hidden=true; document.getElementById('btnPhone').classList.add('on'); document.getElementById('btnPhone').textContent='📱 Phone on';
+      toast('Phone mode on: upright = 🌙, upside down = ⭐, shake to move!',3500); }
+    else { phoneOn=false; mcSay('Sensors are blocked here',BLOCKED,'Try again'); }
+  },2500);
+}
+mcAllow.addEventListener('click',()=>{
+  try {
+    if (typeof DeviceMotionEvent==='undefined'){ mcSay('No motion sensors','This device does not have motion sensors (a computer?). Use the buttons, or wiggle the controller with your mouse.','Try again'); return; }
+    if (typeof DeviceMotionEvent.requestPermission==='function'){
+      // iPhone / iPad: this shows the "Allow motion & orientation" question
+      DeviceMotionEvent.requestPermission().then(r=>{
+        if (r!=='granted'){ mcSay('Motion was not allowed','To allow it: close this page, open it again, and tap "Allow" when your phone asks. In Safari you can also check Settings → Safari → Motion & Orientation Access.','Ask again'); return; }
+        if (typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(()=>{});
+        startSensors();
+      }).catch(()=>mcSay('Sensors are blocked here',BLOCKED,'Try again'));
+    } else startSensors();   // Android: no question needed
+  } catch(e){ mcSay('Sensors are blocked here',BLOCKED,'Try again'); }
+});
+document.getElementById('mcSkip').addEventListener('click',()=>{ mc.hidden=true; });
+document.getElementById('btnPhone').addEventListener('click',()=>{
+  if (phoneOn){ toast('Phone mode is already on — shake away!'); return; }
+  mcSay('Play with your real phone?','Your phone becomes the controller: hold it upright for 🌙, turn it upside down for ⭐, and shake to move the paddle.','Allow motion sensors');
+});
+
+/* ================= PAGES & NAVIGATION ================= */
+const track=document.getElementById('track'), dots=document.getElementById('dots');
+const pageList=()=>[...document.querySelectorAll('.page')];
+let cur=0, lastNav=0;
+function refreshNav(){
+  const pg=pageList(); dots.innerHTML='';
+  pg.forEach((_,i)=>{ const d=document.createElement('span'); d.onclick=()=>go(i); dots.appendChild(d); });
+  go(Math.min(cur,pg.length-1));
+}
+function go(i){
+  const pg=pageList(); cur=clamp(i,0,pg.length-1); lastNav=Date.now();
+  track.style.transform=`translateX(${-cur*100}%)`;
+  [...dots.children].forEach((d,k)=>d.classList.toggle('on',k===cur));
+  document.getElementById('prev').disabled=cur===0;
+  document.getElementById('next').disabled=cur===pg.length-1;
+  document.getElementById('pageNum').textContent=`${cur+1} / ${pg.length}`;
+  document.getElementById('delPage').hidden=!pg[cur].classList.contains('custom');
+  if (pg[cur].id==='try-it' && !mcShown && !phoneOn && 'ontouchstart' in window) showMotionCard();
+}
+const navOK=()=>Date.now()-lastNav>600;
+window.addEventListener('hashchange',()=>{ const i=pageList().findIndex(pg=>pg.id===location.hash.slice(1)); if (i>=0 && i!==cur) go(i); });
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('next').onclick=()=>go(cur+1);
+const typing=()=>document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName==='INPUT');
+window.addEventListener('keydown',e=>{ if (typing()) return;
+  if (pageList()[cur].id==='try-it'){
+    if (e.key==='ArrowUp'||e.key==='m'){ e.preventDefault(); setOrient('moon'); return; }
+    if (e.key==='ArrowDown'||e.key==='s'){ e.preventDefault(); setOrient('star'); return; }
+    if (e.key===' '||e.key==='Enter'){ e.preventDefault(); shake('vert'); return; } }
+  if (e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); go(cur+1); }
+  if (e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(cur-1); } });
+let sx=null, sy=0;
+const vp=document.getElementById('viewport');
+vp.addEventListener('pointerdown',e=>{
+  sx=null; if (!e.isPrimary) return;
+  if (document.body.classList.contains('editing') && e.target.closest('[data-edit],.media-tools')) return;
+  if (e.target.closest('.controls,#try-it .media,#motionCard')) return;
+  sx=e.clientX; sy=e.clientY; });
+vp.addEventListener('pointerup',e=>{ if (sx===null) return; const dx=e.clientX-sx, dy=e.clientY-sy; sx=null;
+  if (Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.2 && navOK()) go(cur+(dx<0?1:-1)); });
+vp.addEventListener('pointercancel',()=>{ sx=null; });
+vp.addEventListener('wheel',e=>{ if (typing() || !navOK()) return; const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+  if (Math.abs(d)<25) return; go(cur+(d>0?1:-1)); },{passive:true});
+
+/* ================= EDITABLE TEXT ================= */
+let lastText=null;
+function bindEditable(el){
+  const k=el.dataset.edit; el.dataset.def=el.innerHTML;
+  if (state.text[k]!=null) el.innerHTML=state.text[k];
+  applyStyle(el);
+  if (document.body.classList.contains('editing')) el.setAttribute('contenteditable','true');
+  el.addEventListener('input',()=>{ state.text[k]=el.innerHTML; saveSoon(); });
+  el.addEventListener('focus',()=>{ lastText=el; });
+  el.addEventListener('paste',e=>{ e.preventDefault(); document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text/plain')); });
+}
+function applyStyle(el){ const st=state.style[el.dataset.edit]||{}; el.style.fontSize=st.fs?st.fs+'px':''; el.style.color=st.color||''; }
+const editBtn=document.getElementById('editBtn');
+if (READ_ONLY) editBtn.remove();   // the edit bar only shows in edit mode, so it stays hidden too
+editBtn.onclick=()=>{
+  const on=!document.body.classList.contains('editing');
+  document.body.classList.toggle('editing',on);
+  editBtn.classList.toggle('on',on); editBtn.textContent=on?'✓ Done':'✏️ Edit';
+  document.querySelectorAll('[data-edit]').forEach(el=>on?el.setAttribute('contenteditable','true'):el.removeAttribute('contenteditable'));
+  if (on) toast('Tap any text to edit it. Picture buttons change pictures. ＋ Page adds a page.');
+  else { if (document.activeElement) document.activeElement.blur(); save(); toast('Saved in this browser ✓'); }
+};
+document.querySelectorAll('#editBar [data-fmt], #editBar .sw').forEach(b=>b.addEventListener('mousedown',e=>e.preventDefault()));
+document.querySelectorAll('#editBar [data-fmt]').forEach(b=>b.addEventListener('click',()=>{
+  if (!lastText) return toast('Tap a piece of text first');
+  const k=lastText.dataset.edit, st=state.style[k]=state.style[k]||{}, act=b.dataset.fmt;
+  if (act==='resetText'){ lastText.innerHTML=lastText.dataset.def; delete state.text[k]; delete state.style[k]; applyStyle(lastText); save(); return; }
+  const fs=parseFloat(getComputedStyle(lastText).fontSize);
+  st.fs=Math.round(clamp(fs*(act==='bigger'?1.12:0.89),10,220)); applyStyle(lastText); save();
+}));
+document.querySelectorAll('#editBar .sw').forEach(s=>s.addEventListener('click',()=>{
+  if (!lastText) return toast('Tap a piece of text first');
+  (state.style[lastText.dataset.edit]=state.style[lastText.dataset.edit]||{}).color=s.dataset.color; applyStyle(lastText); save();
+}));
+const resetAll=document.getElementById('resetAll'); let armed=false;
+resetAll.onclick=()=>{
+  if (!armed){ armed=true; resetAll.textContent='Tap again to reset'; setTimeout(()=>{ armed=false; resetAll.textContent='Reset all'; },3000); return; }
+  state={text:{},style:{},media:{},custom:[]}; save(); location.reload();
+};
+
+/* ================= EXTRA PAGES ================= */
+function buildCustom(c){
+  const sec=document.createElement('section'); sec.className='page custom'; sec.id=c.id;
+  sec.innerHTML=`<h2 data-edit="${c.id}-title">New page</h2>
+    <div class="media" data-media="${c.id}-img"></div>
+    <p data-edit="${c.id}-text">Write something here…</p>`;
+  const anchor=document.getElementById(c.after);
+  if (anchor) anchor.after(sec); else document.getElementById('have-fun').before(sec);
+  sec.querySelectorAll('[data-edit]').forEach(bindEditable);
+  setupMedia(sec.querySelector('.media'));
+}
+document.getElementById('addPage').onclick=()=>{
+  const c={id:'pg-'+Date.now().toString(36), after:pageList()[cur].id};
+  state.custom.push(c); save(); buildCustom(c); refreshNav(); go(cur+1);
+};
+document.getElementById('delPage').onclick=()=>{
+  const sec=pageList()[cur]; if (!sec.classList.contains('custom')) return;
+  const c=state.custom.find(x=>x.id===sec.id);
+  state.custom.forEach(x=>{ if (x.after===sec.id) x.after=c.after; });
+  state.custom=state.custom.filter(x=>x.id!==sec.id);
+  ['-title','-text'].forEach(s=>{ delete state.text[sec.id+s]; delete state.style[sec.id+s]; }); delete state.media[sec.id+'-img'];
+  save(); sec.remove(); refreshNav(); go(cur-1);
+};
+
+/* ================= PICTURES: live p5 drawing → GIF, or your own image ================= */
+const recs=[];
+function applyMedia(m){
+  const k=m.dataset.media, s=state.media[k]||{}, rec=m._rec;
+  const img=m.querySelector('img.custom'), gen=m.querySelector('img.gen'), sk=m.querySelector('.sketch'), empty=m.querySelector('.empty');
+  img.hidden=!s.src; if (s.src) img.src=s.src; else img.removeAttribute('src');
+  const showGif=!s.src && rec && rec.gifReady;
+  gen.hidden=!showGif;
+  sk.style.visibility=(!s.src && !showGif)?'visible':'hidden';
+  empty.style.visibility=(!s.src && !rec)?'visible':'hidden';
+  const sc=s.scale||100; m.querySelector('.media-inner').style.transform=`scale(${sc/100})`; m.querySelector('.pct').textContent=sc+'%';
+}
+function setupMedia(m){
+  const k=m.dataset.media;
+  m.innerHTML=`<div class="media-inner"><div class="sketch"></div><img class="gen" alt="" hidden><img class="custom" alt="" hidden>
+      <div class="empty">＋ Add a picture with 🖼 Replace</div></div>
+    <div class="media-tools"><button data-a="replace">🖼 Replace</button><button data-a="draw">✏️ Drawing</button>
+      <button data-a="smaller">−</button><span class="pct">100%</span><button data-a="bigger">+</button>
+      <input type="file" accept="image/*" hidden></div>`;
+  const file=m.querySelector('input[type=file]');
+  m.querySelector('.media-tools').addEventListener('click',e=>{
+    const a=e.target.dataset.a; if (!a) return; const s=state.media[k]=state.media[k]||{};
+    if (a==='replace') file.click();
+    if (a==='draw'){ delete s.src; save(); applyMedia(m); }
+    if (a==='smaller'||a==='bigger'){ s.scale=clamp((s.scale||100)+(a==='bigger'?10:-10),30,200); save(); applyMedia(m); }
+  });
+  file.addEventListener('change',()=>{
+    const f=file.files[0]; if (!f) return; const r=new FileReader();
+    r.onload=()=>{ (state.media[k]=state.media[k]||{}).src=r.result; applyMedia(m);
+      if (!save()) toast('Picture shown — but it is too big to remember after reload.'); };
+    r.readAsDataURL(f); file.value='';
+  });
+  const scene=SCENES[m.dataset.scene];
+  if (scene){
+    const el=m.querySelector('.sketch');
+    const rec={m,el,scene,kind:m.dataset.scene,section:m.closest('.page'),ready:false,t:0,gifReady:false};
+    m._rec=rec; recs.push(rec);
+    rec.p=new p5(p=>{
+      let h;
+      p.setup=()=>{
+        p.createCanvas(Math.max(10,el.clientWidth),Math.max(10,el.clientHeight));
+        p.pixelDensity(Math.min(2,window.devicePixelRatio||1));
+        p.noLoop(); h=H(p); rec.ready=true;
+        new ResizeObserver(()=>{ const W=el.clientWidth, Hh=el.clientHeight;
+          if (W>10 && Hh>10 && (W!==p.width||Hh!==p.height)){ p.resizeCanvas(W,Hh); p.redraw(); } }).observe(el);
+      };
+      p.draw=()=>{ p.clear(); p.randomSeed(Math.floor(rec.t*10));
+        try { rec.scene.draw(p,h,rec.t); } catch(e){ if (!window._drawErr){ window._drawErr=1; toast('Drawing error: '+e.message); } } };
+    },el);
+    if (rec.kind==='play'){
+      // tap = shake, wiggle with finger/mouse = shake (up-down or side-to-side)
+      let down=null;
+      m.addEventListener('pointerdown',e=>{ if (document.body.classList.contains('editing')) return;
+        down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,dist:0,ax:0,ay:0,t:now(),fired:false}; });
+      m.addEventListener('pointermove',e=>{ if (!down) return;
+        const dx=e.clientX-down.lx, dy=e.clientY-down.ly; down.lx=e.clientX; down.ly=e.clientY;
+        down.dist+=Math.hypot(dx,dy); down.ax+=Math.abs(dx); down.ay+=Math.abs(dy);
+        if (down.dist>70){ shake(down.ax>down.ay?'side':'vert'); down.fired=true; down.dist=0; down.ax=0; down.ay=0; } });
+      const up=()=>{ if (down && !down.fired && down.dist<12) shake('vert'); down=null; };
+      m.addEventListener('pointerup',up); m.addEventListener('pointercancel',()=>{ down=null; });
+    }
+  }
+  applyMedia(m);
+}
+
+/* ---- tiny GIF encoder: the demo drawings are turned into looping GIFs,
+        so they keep playing even where the viewer pauses page scripts ---- */
+const FPS=10;
+// In the p5 editor the live p5 drawing runs smoothly, so no GIF swap (that swap caused a blink).
+const USE_GIF=false;
+function Bytes(){ this.b=new Uint8Array(1<<16); this.n=0; }
+Bytes.prototype.byte=function(v){ if (this.n>=this.b.length){ const nb=new Uint8Array(this.b.length*2); nb.set(this.b); this.b=nb; } this.b[this.n++]=v; };
+Bytes.prototype.word=function(v){ this.byte(v&255); this.byte((v>>8)&255); };
+Bytes.prototype.str=function(s){ for (let i=0;i<s.length;i++) this.byte(s.charCodeAt(i)); };
+const DICT=new Int16Array(4096*256).fill(-1), USED=new Int32Array(4096);
+function lzw(ind,out){
+  out.byte(8);
+  const sb=new Uint8Array(255); let sl=0;
+  const put=v=>{ sb[sl++]=v; if (sl===255){ out.byte(255); for (let i=0;i<255;i++) out.byte(sb[i]); sl=0; } };
+  let cur=0, nb=0, cs=9, next=258, nu=0;
+  const emit=c=>{ cur|=c<<nb; nb+=cs; while (nb>=8){ put(cur&255); cur>>>=8; nb-=8; } };
+  const reset=()=>{ for (let i=0;i<nu;i++) DICT[USED[i]]=-1; nu=0; next=258; cs=9; };
+  emit(256);
+  let prefix=ind[0];
+  for (let i=1;i<ind.length;i++){
+    const k=ind[i], key=(prefix<<8)|k, c=DICT[key];
+    if (c>=0){ prefix=c; continue; }
+    emit(prefix);
+    if (next===4096){ emit(256); reset(); }
+    else { if (next>=(1<<cs)) cs++; DICT[key]=next++; USED[nu++]=key; }
+    prefix=k;
+  }
+  emit(prefix); emit(257);
+  if (nb>0) put(cur&255);
+  if (sl>0){ out.byte(sl); for (let i=0;i<sl;i++) out.byte(sb[i]); }
+  out.byte(0);
+  reset();
+}
+const tick=()=>new Promise(r=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>r(); ch.port2.postMessage(0); });
+let R5=null, RH=null;
+async function makeGif(rec){
+  const cw=rec.el.clientWidth, ch=rec.el.clientHeight; if (cw<20||ch<20) return;
+  const rs=Math.min(2,Math.sqrt(240000/(cw*ch))), fw=Math.round(cw*rs), fh=Math.round(ch*rs);
+  R5.resizeCanvas(fw,fh); R5._lw=fw/cw;
+  const ctx=R5.drawingContext, N=Math.round(rec.scene.P*FPS);
+  // draw one frame at GIF size (line widths scaled to match)
+  function draw(i){
+    R5.resetMatrix(); R5.background(C.paper); R5.randomSeed(i*7+1);
+    const W=R5.width, Hh=R5.height;
+    rec.scene.draw(R5,RH,i/FPS);
+    return ctx.getImageData(0,0,W,Hh).data;
+  }
+  // 1) palette from a few frames
+  const hist=new Uint32Array(32768), sr=new Float64Array(32768), sg=new Float64Array(32768), sbb=new Float64Array(32768);
+  for (let i=0;i<N;i+=Math.max(1,Math.floor(N/10))){
+    const d=draw(i);
+    for (let q=0;q<d.length;q+=8){ const key=((d[q]>>3)<<10)|((d[q+1]>>3)<<5)|(d[q+2]>>3); hist[key]++; sr[key]+=d[q]; sg[key]+=d[q+1]; sbb[key]+=d[q+2]; }
+    await tick();
+  }
+  const keys=[]; for (let k=0;k<32768;k++) if (hist[k]) keys.push(k);
+  keys.sort((a,b)=>hist[b]-hist[a]);
+  const pal=keys.slice(0,256).map(k=>[sr[k]/hist[k],sg[k]/hist[k],sbb[k]/hist[k]].map(Math.round));
+  while (pal.length<256) pal.push([0,0,0]);
+  const lut=new Int16Array(32768).fill(-1);
+  const near=key=>{ const r=((key>>10)<<3)+4, g=(((key>>5)&31)<<3)+4, b=((key&31)<<3)+4; let bi=0, bd=1e9;
+    for (let i=0;i<256;i++){ const c=pal[i], dd=(c[0]-r)**2+(c[1]-g)**2+(c[2]-b)**2; if (dd<bd){ bd=dd; bi=i; } } return bi; };
+  // 2) frames
+  const out=new Bytes();
+  out.str('GIF89a'); out.word(fw); out.word(fh); out.byte(0xF7); out.byte(0); out.byte(0);
+  for (const c of pal){ out.byte(c[0]); out.byte(c[1]); out.byte(c[2]); }
+  out.byte(0x21); out.byte(0xFF); out.byte(11); out.str('NETSCAPE2.0'); out.byte(3); out.byte(1); out.word(0); out.byte(0);
+  const ind=new Uint8Array(fw*fh), delay=Math.round(100/FPS);
+  for (let i=0;i<N;i++){
+    const d=draw(i);
+    for (let q=0,pi=0;pi<ind.length;q+=4,pi++){ const key=((d[q]>>3)<<10)|((d[q+1]>>3)<<5)|(d[q+2]>>3); let v=lut[key]; if (v<0) v=lut[key]=near(key); ind[pi]=v; }
+    out.byte(0x21); out.byte(0xF9); out.byte(4); out.byte(0x04); out.word(delay); out.byte(0); out.byte(0);
+    out.byte(0x2C); out.word(0); out.word(0); out.word(fw); out.word(fh); out.byte(0);
+    lzw(ind,out);
+    await tick();
+  }
+  out.byte(0x3B);
+  const blob=new Blob([out.b.subarray(0,out.n)],{type:'image/gif'});
+  const gen=rec.m.querySelector('img.gen');
+  const tryLoad=src=>new Promise(res=>{ gen.onload=()=>res(gen.naturalWidth>0); gen.onerror=()=>res(false); gen.src=src; });
+  // show the GIF only if it really loads; otherwise keep the live drawing
+  let ok=await tryLoad(URL.createObjectURL(blob));
+  if (!ok){ const dataUrl=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.onerror=()=>r(null); fr.readAsDataURL(blob); });
+    if (dataUrl) ok=await tryLoad(dataUrl); }
+  if (ok){ try { if (gen.decode) await gen.decode(); } catch(e){}   // fully decoded first, so the swap doesn't flash
+    rec.gifReady=true; applyMedia(rec.m); } else gen.removeAttribute('src');
+}
+async function makeAllGifs(){
+  const order=recs.filter(r=>r.kind!=='play');
+  for (const r of order){ try { await makeGif(r); } catch(e){ console.log('gif failed',e); } }
+}
+
+/* ================= QR CODE: open this page on a phone ================= */
+if (document.getElementById('qrBtn') && document.getElementById('qrCard')) {
+const qrBtn=document.getElementById('qrBtn'), qrCard=document.getElementById('qrCard'), qrUrl=document.getElementById('qrUrl'), qrBox=document.getElementById('qrBox');
+let qr=null;
+const SHARE_URL='https://editor.p5js.org/lxfart1/full/5ZyH6Vs7XU';   // the link the QR code opens
+if (/claude|anthropic/i.test(location.hostname)) qrBtn.hidden=true;   // only useful where the page has its own web link
+function drawQR(){
+  const text=qrUrl.value.trim(); if (!text) return;
+  if (typeof QRCode==='undefined'){ qrBox.textContent='QR library did not load.'; return; }
+  const size=Math.min(240, window.innerWidth-120);
+  if (!qr) qr=new QRCode(qrBox,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M});
+  else { qr.clear(); qr.makeCode(text); }
+}
+qrBtn.onclick=()=>{ qrUrl.value=state.qrUrl||SHARE_URL; qrCard.hidden=false; drawQR(); };
+qrUrl.addEventListener('change',()=>{ state.qrUrl=qrUrl.value.trim(); save(); drawQR(); });
+qrUrl.addEventListener('input',()=>{ clearTimeout(qrUrl._t); qrUrl._t=setTimeout(drawQR,400); });
+document.getElementById('qrClose').onclick=()=>{ qrCard.hidden=true; };
+}
+
+/* ================= START ================= */
+document.querySelectorAll('[data-edit]').forEach(bindEditable);
+document.querySelectorAll('.media').forEach(setupMedia);
+state.custom.forEach(buildCustom);
+refreshNav();
+{ const i=pageList().findIndex(pg=>pg.id===location.hash.slice(1)); go(i>=0?i:0); }
+
+// live drawing for the page on screen (the try-it game, and the demos until their GIF is ready)
+function liveTick(){
+  const t=now(), sec=pageList()[cur];
+  recs.forEach(r=>{ if (r.ready && r.section===sec && (r.kind==='play' || !r.gifReady) && t-(r.t||0)>0.03){ r.t=t; r.p.redraw(); } });
+}
+setInterval(liveTick,40);
+(function raf(){ liveTick(); requestAnimationFrame(raf); })();
+
+// hidden p5 used to render the GIF frames
+new p5(p=>{ p.setup=()=>{ p.pixelDensity(1); p.createCanvas(10,10); p.noLoop(); R5=p; RH=H(p); if (USE_GIF) setTimeout(makeAllGifs,300); }; p.draw=()=>{}; }, document.getElementById('r5'));
+window.addEventListener('error',e=>{ if (!window._drawErr){ window._drawErr=1; toast('Error: '+e.message); } });
+
+</script>
+</body>
+</html>
