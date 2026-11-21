@@ -1,0 +1,150 @@
+
+#include <DFPongController.h>
+#include <Adafruit_LSM6DS3TRC.h>
+
+DFPongController controller;
+Adafruit_LSM6DS3TRC imu;
+
+int controllerNumber = 13;
+
+sensors_event_t accel;
+sensors_event_t gyro;
+sensors_event_t temp;
+
+// Paddle range
+float topAngle = -40;
+float bottomAngle = 40;
+float padLocation = 0;
+
+// Motion control
+float shakeAmplitude = 0;
+float moveSpeed = 0;
+
+// -1 = UP, 1 = DOWN, 0 = STOP
+int direction = 0;
+
+// Adjustable settings
+float flipThreshold = 5.0;  // DEAD ZONE
+float shakeThreshold = 70.0;
+float minSpeed = 35.0;
+float maxSpeed = 200.0;
+
+unsigned long lastUpdate = 0;
+unsigned long lastPrint = 0;
+
+void setup() {
+  Serial.begin(9600);
+
+  if (!imu.begin_I2C()) {
+    Serial.println("No IMU found!");
+    while (true) {
+      delay(100);
+    }
+  }
+
+  controller.setControllerNumber(controllerNumber);
+  controller.setStatusLED(LED_BUILTIN);
+
+  controller.setControllerName("Karaaa");
+  controller.setPlayerColor("#F28500");
+
+  controller.setHitSound(
+    "https://raw.githubusercontent.com/qulegeqiu/sounds/main/hit.mp3"
+  );
+
+  controller.setMusic(
+    "https://raw.githubusercontent.com/qulegeqiu/sounds/main/background.mp3"
+  );
+
+  controller.begin();
+  lastUpdate = millis();
+}
+
+void loop() {
+  controller.update();
+
+  unsigned long now = millis();
+
+  // Read sensor every 10ms
+  if (now - lastUpdate >= 10) {
+
+    float dt = (now - lastUpdate) / 1000.0;
+    dt = constrain(dt, 0.0f, 0.03f);
+    lastUpdate = now;
+
+    imu.getEvent(&accel, &gyro, &temp);
+
+    float z = accel.acceleration.z;
+
+    // DEAD ZONE DIRECTION CONTROL
+    if (z > flipThreshold) {
+      direction = -1;  // UP
+    }
+    else if (z < -flipThreshold) {
+      direction = 1;   // DOWN
+    }
+    else {
+      direction = 0;   // STOP immediately
+    }
+
+    // Read rotation speed
+    float gx = degrees(gyro.gyro.x);
+    float gy = degrees(gyro.gyro.y);
+    float gz = degrees(gyro.gyro.z);
+
+    shakeAmplitude =
+        fabs(gx) + fabs(gy) + fabs(gz);
+
+    // Calculate speed
+    if (shakeAmplitude < shakeThreshold ||
+        direction == 0) {
+
+      moveSpeed = 0;
+
+    } else {
+
+      float motion = constrain(
+        shakeAmplitude,
+        shakeThreshold,
+        900.0f
+      );
+
+      moveSpeed = minSpeed +
+        (motion - shakeThreshold) *
+        (maxSpeed - minSpeed) /
+        (900.0f - shakeThreshold);
+    }
+
+    // Update paddle position
+    padLocation += direction * moveSpeed * dt;
+
+    padLocation = constrain(
+      padLocation,
+      topAngle,
+      bottomAngle
+    );
+
+    controller.sendPosition(
+      padLocation,
+      topAngle,
+      bottomAngle
+    );
+  }
+
+  // Debug output every 100ms
+  if (now - lastPrint >= 100) {
+    lastPrint = now;
+
+    Serial.print("Direction: ");
+    Serial.print(direction);
+
+    Serial.print(" | Z: ");
+    Serial.print(accel.acceleration.z);
+
+    Serial.print(" | Speed: ");
+    Serial.print(moveSpeed);
+
+    Serial.print(" | Position: ");
+    Serial.println(padLocation);
+  }
+}
